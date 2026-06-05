@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CuffnCode - Retrofitted Blood Pressure Measurement System untuk pengajaran dan penelitian. Dokumentasi lengkap hardware dan firmware.">
+    <title>CuffnCode - Retrofitted Blood Pressure Monitor</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="icon" href="../images/cuffncode.png" type="image/png">
+</head>
+<body>
+    <!-- ==================== Header ==================== -->
+    <header class="site-header">
+        <div class="logo">
+            <button id="menu-toggle" class="menu-toggle" aria-label="Toggle menu">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <img src="../images/cuffncode.png" alt="CuffnCode Logo">
+            <span>CuffnCode</span>
+        </div>
+        <div class="header-right">
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ==================== Sidebar ==================== -->
+    <nav id="sidebar" class="sidebar">
+        <ul class="sidebar-nav">
+            <li class="nav-section">Umum</li>
+            <li><a href="index.html" class="active">Beranda</a></li>
+            <li><a href="#tentang">Tentang</a></li>
+            <li><a href="#fitur">Fitur</a></li>
+            <li><a href="#struktur">Struktur Proyek</a></li>
+
+            <li class="nav-section">Hardware</li>
+            <li><a href="hardware/index.html">Ikhtisar Hardware</a></li>
+            <li><a href="hardware/index.html#afe">Analog Front End</a></li>
+            <li><a href="hardware/index.html#sensor">MPS20N0040D</a></li>
+            <li><a href="hardware/index.html#ad620">AD620</a></li>
+            <li><a href="hardware/index.html#tlc2272">TLC2272</a></li>
+            <li><a href="hardware/index.html#stm32">STM32F411CE</a></li>
+
+            <li class="nav-section">Firmware</li>
+            <li><a href="firmware/index.html">Ikhtisar Firmware</a></li>
+            <li><a href="firmware/index.html#arsitektur">Arsitektur</a></li>
+            <li><a href="firmware/index.html#file-structure">Struktur File</a></li>
+            <li><a href="firmware/index.html#api">API Documentation</a></li>
+            <li><a href="firmware/index.html#build">Build Instructions</a></li>
+            <li><a href="firmware/index.html#algorithm">Algoritma</a></li>
+
+            <li class="nav-section">Resources</li>
+            <li><a href="https://github.com/Student-Embedded-Control-and-AI-Fest/CuffnCode" target="_blank">GitHub Repo</a></li>
+            <li><a href="../README.md">README</a></li>
+        </ul>
+    </nav>
+
+    <!-- ==================== Main Content ==================== -->
+    <main class="main-content">
+        <!-- Hero -->
+        <section class="hero">
+            <img src="../images/cuffncode.png" alt="CuffnCode Logo">
+            <h1>CuffnCode</h1>
+            <p class="tagline">
+                Sistem pengukur tekanan darah retrofitted untuk pengajaran dan penelitian.
+                Platform over-instrumented untuk pengembangan algoritma signal processing dan control.
+            </p>
+            <p>
+                <span class="badge badge-blue">STM32F411CE</span>
+                <span class="badge badge-green">AD620</span>
+                <span class="badge badge-purple">Oscillometric</span>
+                <span class="badge badge-orange">IFAC Funded</span>
+            </p>
+        </section>
+
+        <!-- Tentang -->
+        <section id="tentang">
+            <h2>Tentang Proyek</h2>
+            <p>
+                <strong>CuffnCode</strong> adalah sistem pengukur tekanan darah (<em>sphygmomanometer</em>)
+                yang di-retrofit untuk keperluan pengajaran dan penelitian di bidang teknik kontrol dan
+                pemrosesan sinyal. Proyek ini menggunakan komponen yang mudah didapat di pasar Indonesia
+                dan dirancang agar dapat direproduksi dengan mudah.
+            </p>
+            <p>
+                Sistem ini menggunakan sensor tekanan <strong>MPS20N0040D</strong> (millivolt bridge sensor)
+                dengan <em>Analog Front End</em> (AFE) berbasis <strong>AD620</strong> (instrumentation amplifier)
+                dan <strong>TLC2272</strong> (level shifter). Digital controller menggunakan
+                <strong>STM32F411CE</strong> (Black Pill) dengan firmware yang menerapkan algoritma
+                <em>oscillometric</em> untuk menentukan tekanan sistolik, diastolik, MAP, dan heart rate.
+            </p>
+            <div class="alert alert-info">
+                <strong>Dibiayai oleh:</strong> IFAC Activity Fund (July 2025 - June 2026)
+            </div>
+        </section>
+
+        <!-- Fitur -->
+        <section id="fitur">
+            <h2>Fitur Utama</h2>
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-icon">🔬</div>
+                    <h3>Analog Front End</h3>
+                    <p>Low-noise AFE dengan AD620 gain ~105x dan TLC2272 level shift ~1.5V. Simulasi dan validasi dengan TINA-TI.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">📊</div>
+                    <h3>Sampling 1kHz</h3>
+                    <p>ADC 12-bit dengan DMA double buffer dan timer trigger. Sampling rate 1000 sampel/detik untuk resolusi tinggi.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🔊</div>
+                    <h3>Digital Filtering</h3>
+                    <p>Low-pass FIR, band-pass IIR, moving average, dan notch filter 50/60Hz untuk menghilangkan noise dan hum.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">❤️</div>
+                    <h3>Oscillometric Method</h3>
+                    <p>Algoritma oscillometric untuk menentukan SBP, DBP, MAP, dan Heart Rate secara akurat.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">📡</div>
+                    <h3>UART Interface</h3>
+                    <p>Output data real-time via UART dalam format CSV dan JSON. Command interface untuk kontrol sistem.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🛡️</div>
+                    <h3>Safety System</h3>
+                    <p>Proteksi over-pressure, timeout pompa, dan emergency deflation untuk keamanan pasien.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Retrofitted Pump System -->
+        <section id="retrofit">
+            <h2>Retrofitted Pump System</h2>
+            <p>
+                Sistem ini menggunakan cuff tensimeter dewasa standar yang di-retrofit dengan pompa mini
+                dan katup solenoid yang dikontrol secara elektronik. Pompa mengembangkan cuff hingga tekanan
+                ~180 mmHg, kemudian katup membuka secara bertahap untuk deflasi terkontrol.
+            </p>
+            <img src="../images/complete_device.png" alt="Complete device photo" style="max-width:600px; display:block; margin:20px auto;">
+        </section>
+
+        <!-- Struktur Proyek -->
+        <section id="struktur">
+            <h2>Struktur Proyek</h2>
+            <div class="tree-view">
+                <div class="tree-item">
+                    <span class="tree-folder">📁 CuffnCode/</span>
+                    <div class="indent">
+                        <div><span class="tree-folder">📁 Firmware/</span></div>
+                        <div class="indent">
+                            <div><span class="tree-folder">📁 Core/</span></div>
+                            <div class="indent">
+                                <div><span class="tree-folder">📁 Inc/</span> <span class="tree-file">Header files</span></div>
+                                <div><span class="tree-folder">📁 Src/</span> <span class="tree-file">Source files</span></div>
+                                <div><span class="tree-folder">📁 Startup/</span> <span class="tree-file">startup.s + linker script</span></div>
+                            </div>
+                            <div><span class="tree-folder">📁 Drivers/</span> <span class="tree-file">STM32 HAL + CMSIS</span></div>
+                            <div><span class="tree-file">📄 Makefile</span></div>
+                        </div>
+                        <div><span class="tree-folder">📁 KiCad/</span> <span class="tree-file">PCB design files</span></div>
+                        <div><span class="tree-folder">📁 TINA-TI/</span> <span class="tree-file">Simulation files</span></div>
+                        <div><span class="tree-folder">📁 docs/</span> <span class="tree-file">GitHub Pages (this site)</span></div>
+                        <div><span class="tree-folder">📁 images/</span> <span class="tree-file">Project images</span></div>
+                        <div><span class="tree-file">📄 README.md</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Links -->
+        <section id="links">
+            <h2>Mulai Cepat</h2>
+            <div class="card-grid">
+                <div class="card">
+                    <h3>🔧 Hardware</h3>
+                    <p>Pelajari desain analog front end, komponen, dan skematik.</p>
+                    <a href="hardware/index.html">Baca Dokumentasi Hardware &rarr;</a>
+                </div>
+                <div class="card">
+                    <h3>💻 Firmware</h3>
+                    <p>Pelajari arsitektur firmware, API, dan cara build & flash.</p>
+                    <a href="firmware/index.html">Baca Dokumentasi Firmware &rarr;</a>
+                </div>
+                <div class="card">
+                    <h3>📂 GitHub</h3>
+                    <p>Akses repository GitHub untuk source code lengkap.</p>
+                    <a href="https://github.com/Student-Embedded-Control-and-AI-Fest/CuffnCode" target="_blank">Buka Repository &rarr;</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Next Steps -->
+        <section id="next-steps">
+            <h2>Rencana Pengembangan</h2>
+            <ul>
+                <li>✅ Analog Front End design & simulation</li>
+                <li>✅ Firmware dasar (ADC, pump, valve control)</li>
+                <li>✅ Algoritma oscillometric dasar</li>
+                <li>⬜ Notch filter 50/60 Hz (hum killer)</li>
+                <li>⬜ Layout PCB</li>
+                <li>⬜ Evaluasi performa & kalibrasi</li>
+                <li>⬜ GUI desktop untuk data logging</li>
+                <li>⬜ Wireless data transmission (Bluetooth)</li>
+            </ul>
+        </section>
+
+        <!-- Safety -->
+        <section id="safety">
+            <h2>Keamanan</h2>
+            <div class="alert alert-warning">
+                <strong>Perhatian!</strong> Sensor MPS20N0040D sangat sensitif. Hindari over-pressure.
+            </div>
+            <ul>
+                <li>Proteksi timeout pompa (30 detik maksimal)</li>
+                <li>Emergency deflation via valve quick-dump</li>
+                <li>Ground noise dari USB — ferrite pada kabel USB disarankan</li>
+                <li>Alat ini untuk tujuan pengajaran dan penelitian, <strong>bukan untuk diagnosis medis</strong></li>
+            </ul>
+        </section>
+
+        <!-- Footer -->
+        <footer class="site-footer">
+            <p>
+                <strong>CuffnCode</strong> &mdash; Retrofitted Blood Pressure Measurement System<br>
+                Dibiayai oleh IFAC Activity Fund (July 2025 - June 2026)
+            </p>
+            <p>&copy; 2026 Tim CuffnCode</p>
+        </footer>
+    </main>
+
+    <script src="assets/js/main.js"></script>
+</body>
+</html>

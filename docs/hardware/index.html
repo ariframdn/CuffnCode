@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Dokumentasi Hardware CuffnCode - Analog Front End, sensor MPS20N0040D, AD620, TLC2272, STM32F411CE">
+    <title>CuffnCode - Dokumentasi Hardware</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" href="../../images/cuffncode.png" type="image/png">
+</head>
+<body>
+    <header class="site-header">
+        <div class="logo">
+            <button id="menu-toggle" class="menu-toggle" aria-label="Toggle menu">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <img src="../../images/cuffncode.png" alt="CuffnCode Logo">
+            <span>CuffnCode</span>
+        </div>
+        <div class="header-right">
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <nav id="sidebar" class="sidebar">
+        <ul class="sidebar-nav">
+            <li class="nav-section">Umum</li>
+            <li><a href="../index.html">Beranda</a></li>
+
+            <li class="nav-section">Hardware</li>
+            <li><a href="index.html" class="active">Ikhtisar Hardware</a></li>
+            <li><a href="#afe">Analog Front End</a></li>
+            <li class="nav-sub"><a href="#tinati">Simulasi TINA-TI</a></li>
+            <li class="nav-sub"><a href="#gain">Perhitungan Gain</a></li>
+            <li><a href="#sensor">MPS20N0040D</a></li>
+            <li><a href="#ad620">AD620</a></li>
+            <li><a href="#tlc2272">TLC2272</a></li>
+            <li><a href="#stm32">STM32F411CE</a></li>
+            <li><a href="#kicad">Desain PCB (KiCad)</a></li>
+            <li><a href="#pinout">Pin Mapping</a></li>
+            <li><a href="#safety">Keamanan</a></li>
+
+            <li class="nav-section">Firmware</li>
+            <li><a href="../firmware/index.html">Ikhtisar Firmware</a></li>
+
+            <li class="nav-section">Resources</li>
+            <li><a href="https://github.com/Student-Embedded-Control-and-AI-Fest/CuffnCode" target="_blank">GitHub Repo</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <h1>Dokumentasi Hardware</h1>
+
+        <!-- AFE -->
+        <section id="afe">
+            <h2>Analog Front End (AFE)</h2>
+            <p>
+                Analog Front End adalah bagian paling kritis dari sistem CuffnCode. AFE bertugas
+                memperkuat sinyal milivolt dari sensor tekanan MPS20N0040D ke level yang dapat
+                dibaca oleh ADC mikrokontroler (0-3.3V).
+            </p>
+            <p>
+                AFE menggunakan dua tahap pemrosesan:
+            </p>
+            <ol>
+                <li><strong>Instrumentation Amplifier (AD620):</strong> Memperkuat sinyal differential dari sensor bridge dengan gain ~105x</li>
+                <li><strong>Level Shifter (TLC2272):</strong> Menggeser level DC output ke ~1.5V untuk memberi headroom sinyal positif dan negatif</li>
+            </ol>
+
+            <img src="../../images/AFE.png" alt="Skematik Analog Front End" style="max-width:700px; display:block; margin:20px auto;">
+
+            <h3>Spesifikasi AFE</h3>
+            <table>
+                <tr><th>Parameter</th><th>Nilai</th></tr>
+                <tr><td>Tegangan Supply</td><td>5V (AD620), 3.3V (TLC2272)</td></tr>
+                <tr><td>Gain Total</td><td>~105x</td></tr>
+                <tr><td>Offset Output</td><td>~1.5V</td></tr>
+                <tr><td>Bandwidth</td><td>DC - 1kHz</td></tr>
+                <tr><td>Noise</td><td>Low-noise (AD620: 0.28µV p-p, TLC2272: rail-to-rail)</td></tr>
+                <tr><td>Input Range</td><td>0-20mV (sensor full-scale: 50-100mV dengan divider)</td></tr>
+                <tr><td>Output Range</td><td>0-3.3V (clipped to ADC range)</td></tr>
+            </table>
+        </section>
+
+        <!-- TINA-TI -->
+        <section id="tinati">
+            <h2>Simulasi TINA-TI</h2>
+            <p>
+                Simulasi rangkaian AFE dilakukan menggunakan <strong>TINA-TI</strong> (Texas Instruments
+                SPICE-based simulator) untuk memvalidasi respons frekuensi dan level DC.
+            </p>
+
+            <h3>AC Simulation</h3>
+            <img src="../../images/tina-ac-diag.jpg" alt="TINA-TI AC Simulation" style="max-width:650px; display:block; margin:20px auto;">
+            <p>
+                Diagram Bode menunjukkan respons frekuensi AFE. Gain tetap flat (~40dB) hingga
+                frekuensi cutoff yang cukup untuk aplikasi tekanan darah (DC - 100Hz).
+            </p>
+
+            <h3>File Simulasi</h3>
+            <p>File simulasi tersedia di direktori <code>TINA-TI/</code>:</p>
+            <ul>
+                <li><code>afe-v1.tsc</code> - Skematik utama AFE</li>
+                <li><code>afe-vs-input.tsc</code> - Simulasi variasi input</li>
+                <li><code>ad620.cir</code> - Model SPICE AD620</li>
+                <li><code>tlc2272.cir</code> - Model SPICE TLC2272</li>
+            </ul>
+        </section>
+
+        <!-- Gain Calculation -->
+        <section id="gain">
+            <h2>Perhitungan Gain</h2>
+
+            <h3>Instrumentation Amplifier Gain</h3>
+            <div class="equation">
+                G = 1 + 49.4kΩ / R<sub>g</sub> = 1 + 49.4kΩ / 470 ≈ 105
+            </div>
+            <p>
+                Dengan R<sub>g</sub> = 470Ω, gain AD620 sekitar 105x. Ini berarti input 50mV
+                akan menghasilkan output 5.25V (sebelum level shifting).
+            </p>
+
+            <h3>Level Shifter Offset</h3>
+            <div class="equation">
+                V<sub>offset</sub> = 56k / (47k + 56k) × 3.3V ≈ 1.5V
+            </div>
+            <p>
+                Pembagi tegangan dengan R1=47kΩ dan R2=56kΩ menghasilkan offset ~1.5V dari supply
+                3.3V. Offset ini memberi headroom ±1.8V untuk osilasi sinyal tekanan.
+            </p>
+
+            <h3>Transfer Function Lengkap</h3>
+            <div class="equation">
+                V<sub>out</sub> = (V<sub>in+</sub> - V<sub>in-</sub>) × 105 + 1.5V
+            </div>
+            <p>
+                Pressure (mmHg) = (V<sub>out</sub> - 1.5V) × 300 / (3.3V - 1.5V)
+            </p>
+
+            <div class="alert alert-info">
+                <strong>Catatan:</strong> Transfer function di atas adalah teoritis. Kalibrasi
+                dengan tekanan referensi diperlukan untuk akurasi optimal.
+            </div>
+        </section>
+
+        <!-- Sensor -->
+        <section id="sensor">
+            <h2>MPS20N0040D - Pressure Sensor</h2>
+            <p>
+                MPS20N0040D adalah sensor tekanan tipe bridge (Wheatstone bridge) yang menghasilkan
+                output milivolt proporsional terhadap tekanan yang diberikan. Sensor ini umum digunakan
+                pada tensimeter digital hobbyist dan mudah didapat di pasar Indonesia.
+            </p>
+
+            <table>
+                <tr><th>Parameter</th><th>Nilai</th></tr>
+                <tr><td>Tipe</td><td>Piezoresistive bridge</td></tr>
+                <tr><td>Rentang Tekanan</td><td>0-40 kPa (0-300 mmHg)</td></tr>
+                <tr><td>Output Full-Scale</td><td>50-100 mV (typical)</td></tr>
+                <tr><td>Impedansi Bridge</td><td>4-6 kΩ</td></tr>
+                <tr><td>Supply Voltage</td><td>5V DC</td></tr>
+                <tr><td>Akurasi</td><td>±0.5% FS</td></tr>
+                <tr><td>Linearitas</td><td>±0.3% FS</td></tr>
+                <tr><td>Histeresis</td><td>±0.2% FS</td></tr>
+            </table>
+
+            <div style="display:flex; gap:20px; margin:20px 0; flex-wrap:wrap;">
+                <img src="../../images/mps20n0040d_1.png" alt="MPS20N0040D front" style="max-width:300px;">
+                <img src="../../images/mps20n0040d_2.png" alt="MPS20N0040D back" style="max-width:300px;">
+            </div>
+
+            <div class="alert alert-warning">
+                <strong>Perhatian!</strong> Sensor MPS20N0040D sangat fragile. Hindari tekanan
+                berlebih (>300 mmHg) dan penanganan kasar.
+            </div>
+        </section>
+
+        <!-- AD620 -->
+        <section id="ad620">
+            <h2>AD620 - Instrumentation Amplifier</h2>
+            <p>
+                AD620 adalah instrumentation amplifier low-cost, low-power yang banyak tersedia di
+                pasar Indonesia. Dengan satu resistor eksternal (R<sub>g</sub>), gain dapat diatur
+                dari 1 hingga 1000x.
+            </p>
+
+            <table>
+                <tr><th>Parameter</th><th>Nilai</th></tr>
+                <tr><td>Supply Voltage</td><td>±2.3V to ±18V (atau single supply 5V)</td></tr>
+                <tr><td>Gain Range</td><td>1 - 1000 (diatur dengan R<sub>g</sub>)</td></tr>
+                <tr><td>Input Noise</td><td>0.28 µV p-p (0.1-10Hz)</td></tr>
+                <tr><td>Bandwidth</td><td>120 kHz (G=100)</td></tr>
+                <tr><td>CMRR</td><td>100 dB (min)</td></tr>
+                <tr><td>Offset Voltage</td><td>50 µV (max)</td></tr>
+                <tr><td>Package</td><td>DIP-8 / SOIC-8</td></tr>
+            </table>
+
+            <div style="display:flex; gap:20px; margin:20px 0; flex-wrap:wrap;">
+                <img src="../../images/ad620_1.png" alt="AD620 pinout" style="max-width:200px;">
+                <img src="../../images/ad620_2.png" alt="AD620 diagram" style="max-width:200px;">
+            </div>
+
+            <h3>Konfigurasi Pin</h3>
+            <table>
+                <tr><th>Pin</th><th>Nama</th><th>Fungsi</th></tr>
+                <tr><td>1</td><td>R<sub>g</sub></td><td>Resistor gain (koneksi ke pin 8)</td></tr>
+                <tr><td>2</td><td>-IN</td><td>Input inverting (dari sensor -)</td></tr>
+                <tr><td>3</td><td>+IN</td><td>Input non-inverting (dari sensor +)</td></tr>
+                <tr><td>4</td><td>V<sub>S-</sub></td><td>Negative supply (GND)</td></tr>
+                <tr><td>5</td><td>REF</td><td>Reference voltage (GND)</td></tr>
+                <tr><td>6</td><td>OUTPUT</td><td>Output (ke level shifter)</td></tr>
+                <tr><td>7</td><td>V<sub>S+</sub></td><td>Positive supply (+5V)</td></tr>
+                <tr><td>8</td><td>R<sub>g</sub></td><td>Resistor gain (koneksi ke pin 1)</td></tr>
+            </table>
+        </section>
+
+        <!-- TLC2272 -->
+        <section id="tlc2272">
+            <h2>TLC2272 - Rail-to-Rail Op-Amp</h2>
+            <p>
+                TLC2272 adalah dual operational amplifier rail-to-rail keluaran Texas Instruments.
+                Dalam desain ini, satu op-amp digunakan sebagai <em>level shifter</em> untuk
+                menggeser output AD620 ke tegangan referensi ~1.5V.
+            </p>
+
+            <table>
+                <tr><th>Parameter</th><th>Nilai</th></tr>
+                <tr><td>Supply Voltage</td><td>3.3V (single supply)</td></tr>
+                <tr><td>Output Swing</td><td>Rail-to-rail (0 - 3.3V)</td></tr>
+                <tr><td>Input Noise</td><td>9 nV/√Hz</td></tr>
+                <tr><td>Bandwidth</td><td>2.2 MHz</td></tr>
+                <tr><td>Package</td><td>DIP-8 / SOIC-8</td></tr>
+            </table>
+
+            <img src="../../images/tlc2272.png" alt="TLC2272" style="max-width:300px; margin:20px 0;">
+
+            <h3>Konfigurasi Level Shifter</h3>
+            <p>
+                Op-amp dikonfigurasi sebagai <em>non-inverting summing amplifier</em> dengan
+                input dari AD620 dan tegangan offset dari pembagi resistor (47kΩ + 56kΩ).
+            </p>
+            <div class="equation">
+                V<sub>out</sub> = V<sub>in</sub> × (1 + R<sub>f</sub>/R<sub>i</sub>) + V<sub>offset</sub>
+            </div>
+            <p>
+                Dengan R<sub>f</sub> = R<sub>i</sub>, gain = 2 untuk tahap level shifter. Offset
+                ~1.5V memastikan sinyal selalu dalam range positif ADC.
+            </p>
+
+            <div class="alert alert-info">
+                <strong>Alternatif:</strong> TLC2272 bisa diganti dengan LM358 atau op-amp rail-to-rail
+                lainnya yang tersedia di pasaran.
+            </div>
+        </section>
+
+        <!-- STM32 -->
+        <section id="stm32">
+            <h2>STM32F411CE (Black Pill)</h2>
+            <p>
+                STM32F411CE adalah mikrokontroler berbasis ARM Cortex-M4F dengan FPU, clock 100MHz.
+                Dikenal dengan sebutan "Black Pill", board ini murah, powerful, dan banyak digunakan
+                di proyek embedded.
+            </p>
+
+            <table>
+                <tr><th>Parameter</th><th>Nilai</th></tr>
+                <tr><td>Core</td><td>ARM Cortex-M4F with FPU</td></tr>
+                <tr><td>Clock Speed</td><td>100 MHz (max)</td></tr>
+                <tr><td>Flash Memory</td><td>512 KB</td></tr>
+                <tr><td>SRAM</td><td>128 KB</td></tr>
+                <tr><td>ADC</td><td>12-bit, 16 channels, 2.4 MSPS</td></tr>
+                <tr><td>DMA</td><td>8 stream DMA controller</td></tr>
+                <tr><td>Timer</td><td>11 timers (incl. PWM, encoder)</td></tr>
+                <tr><td>UART</td><td>3x USART</td></tr>
+                <tr><td>I2C</td><td>3x I2C</td></tr>
+                <tr><td>SPI</td><td>4x SPI</td></tr>
+                <tr><td>USB</td><td>USB 2.0 OTG FS</td></tr>
+                <tr><td>Package</td><td>LQFP48 / WeAct Black Pill board</td></tr>
+            </table>
+
+            <div style="display:flex; gap:20px; margin:20px 0; flex-wrap:wrap;">
+                <img src="../../images/prototype1.png" alt="Prototype front" style="max-width:300px;">
+                <img src="../../images/prototype2.png" alt="Prototype side" style="max-width:300px;">
+            </div>
+
+            <h3>Clock Configuration</h3>
+            <p>Sistem clock dikonfigurasi sebagai berikut:</p>
+            <table>
+                <tr><th>Clock</th><th>Sumber</th><th>Frekuensi</th></tr>
+                <tr><td>HSE</td><td>External crystal</td><td>25 MHz</td></tr>
+                <tr><td>SYSCLK</td><td>PLL (HSE / 25 × 200 / 2)</td><td>100 MHz</td></tr>
+                <tr><td>HCLK</td><td>AHB (SYSCLK / 1)</td><td>100 MHz</td></tr>
+                <tr><td>APB1</td><td>SYSCLK / 2</td><td>50 MHz</td></tr>
+                <tr><td>APB2</td><td>SYSCLK / 1</td><td>100 MHz</td></tr>
+                <tr><td>ADC clock</td><td>APB2 / 4</td><td>25 MHz</td></tr>
+            </table>
+        </section>
+
+        <!-- KiCad -->
+        <section id="kicad">
+            <h2>Desain PCB (KiCad)</h2>
+            <p>
+                Desain PCB untuk Analog Front End dikerjakan menggunakan <strong>KiCad 9.0</strong>.
+                File desain tersedia di direktori <code>KiCad/</code>.
+            </p>
+
+            <h3>File KiCad</h3>
+            <ul>
+                <li><code>AFE.kicad_sch</code> - Skematik AFE</li>
+                <li><code>AFE.kicad_pcb</code> - Layout PCB</li>
+                <li><code>AFE.kicad_pro</code> - Project file</li>
+                <li><code>AFE.kicad_prl</code> - Project settings</li>
+            </ul>
+
+            <h3>Komponen pada PCB</h3>
+            <table>
+                <tr><th>Ref</th><th>Komponen</th><th>Package</th></tr>
+                <tr><td>U1</td><td>AD620 Instrumentation Amplifier</td><td>DIP-8</td></tr>
+                <tr><td>U2</td><td>TLC2272 Dual Op-Amp</td><td>DIP-8</td></tr>
+                <tr><td>R1</td><td>47 kΩ (offset divider)</td><td>0603</td></tr>
+                <tr><td>R2</td><td>56 kΩ (offset divider)</td><td>0603</td></tr>
+                <tr><td>R<sub>g</sub></td><td>470 Ω (gain resistor)</td><td>0603</td></tr>
+                <tr><td>C1-C4</td><td>100 nF (decoupling)</td><td>0603</td></tr>
+                <tr><td>J1</td><td>Connector sensor</td><td>01x05 pin header</td></tr>
+            </table>
+
+            <p>
+                Layout PCB masih dalam tahap pengembangan. Kontribusi dan saran sangat diterima.
+            </p>
+        </section>
+
+        <!-- Pin Mapping -->
+        <section id="pinout">
+            <h2>Pin Mapping STM32F411CE</h2>
+            <table>
+                <tr><th>Pin MCU</th><th>Fungsi</th><th>Koneksi</th></tr>
+                <tr><td>PA0</td><td>ADC1_CH0</td><td>Output AFE (sensor pressure)</td></tr>
+                <tr><td>PA1</td><td>ADC1_CH1</td><td>Tegangan referensi (optional)</td></tr>
+                <tr><td>PA2</td><td>USART2_TX</td><td>Debug UART TX</td></tr>
+                <tr><td>PA3</td><td>USART2_RX</td><td>Debug UART RX</td></tr>
+                <tr><td>PA8</td><td>GPIO Output</td><td>MOSFET Pump control</td></tr>
+                <tr><td>PB0</td><td>GPIO Output</td><td>MOSFET Valve control</td></tr>
+                <tr><td>PC13</td><td>GPIO Output</td><td>LED indikator (active low)</td></tr>
+                <tr><td>PA9</td><td>USART1_TX</td><td>Data output (optional)</td></tr>
+                <tr><td>PA10</td><td>USART1_RX</td><td>Data input (optional)</td></tr>
+            </table>
+
+            <div class="alert alert-info">
+                <strong>Catatan:</strong> Pin mapping dapat disesuaikan sesuai kebutuhan.
+                Pastikan untuk mengupdate firmware jika ada perubahan.
+            </div>
+        </section>
+
+        <!-- Safety -->
+        <section id="safety">
+            <h2>Keamanan Hardware</h2>
+
+            <div class="alert alert-warning">
+                <strong>Peringatan!</strong> Perangkat ini untuk keperluan pengajaran dan penelitian.
+                Jangan gunakan untuk diagnosis medis tanpa validasi dan sertifikasi yang sesuai.
+            </div>
+
+            <h3>Precautions</h3>
+            <ul>
+                <li><strong>Over-pressure:</strong> Sensor MPS20N0040D dapat rusak jika tekanan melebihi 300 mmHg. Firmware memiliki proteksi, tapi jangan mengandalkan sepenuhnya.</li>
+                <li><strong>USB Ground Noise:</strong> Jika power dari USB PC, noise ground dapat mempengaruhi kualitas sinyal. Gunakan ferrite bead pada kabel USB.</li>
+                <li><strong>Power Supply:</strong> Gunakan regulated 5V supply untuk AD620. STM32 Black Pill memiliki regulator 3.3V internal.</li>
+                <li><strong>Electrostatic Discharge:</strong> Komponen CMOS sensitif terhadap ESD. Gunakan wrist strap saat menyolder.</li>
+            </ul>
+
+            <h3>Recommended Test Procedure</h3>
+            <ol>
+                <li>Uji continuity dengan multimeter sebelum power ON</li>
+                <li>Ukur tegangan supply (5V dan 3.3V) tanpa sensor</li>
+                <li>Ukur output AD620 tanpa tekanan (should be ~1.5V)</li>
+                <li>Hubungkan sensor, beri tekanan bertahap dengan bulb pump manual</li>
+                <li>Verifikasi output ADC di UART debug</li>
+                <li>Kalibrasi dengan manometer aneroid referensi</li>
+            </ol>
+        </section>
+
+        <footer class="site-footer">
+            <p><strong>CuffnCode</strong> &mdash; Hardware Documentation</p>
+            <p>&copy; 2026 Tim CuffnCode | IFAC Activity Fund</p>
+        </footer>
+    </main>
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>

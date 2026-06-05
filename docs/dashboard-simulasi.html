@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CuffnCode - Simulator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{
+            font-family:'Courier New',Consolas,monospace;
+            background:#0d1117;
+            color:#c9d1d9;
+            height:100vh;
+            overflow:hidden;
+            display:flex;
+            flex-direction:column;
+            padding:2px; gap:2px;
+        }
+
+        /* CARD BASE - semua card statis fixed height */
+        .card{
+            background:#161b22;
+            border:1px solid #30363d;
+            border-radius:4px;
+            overflow:hidden;
+        }
+
+        /* TOPBAR - fixed 28px */
+        .topbar{
+            display:flex; align-items:center;
+            justify-content:space-between;
+            padding:3px 10px;
+            height:28px; flex-shrink:0;
+        }
+        .topbar .logo{font-weight:bold;font-size:11px;color:#58a6ff;}
+        .topbar .logo span{color:#8b949e;font-weight:normal;}
+        .topbar .info{font-size:8px;color:#8b949e;}
+
+        .btn-group{display:flex;gap:4px;height:20px;}
+        .btn{
+            font-family:inherit;font-size:9px;
+            padding:2px 8px;
+            border:1px solid #30363d;border-radius:3px;
+            cursor:pointer;background:#21262d;color:#c9d1d9;
+            white-space:nowrap;
+        }
+        .btn:hover{background:#30363d;}
+        .btn-start{background:#238636;border-color:#238636;color:#fff;}
+        .btn-start:hover{background:#2ea043;}
+        .btn-start:disabled{opacity:.4;cursor:default;}
+        .btn-stop{background:#da3633;border-color:#da3633;color:#fff;}
+        .btn-stop:hover{background:#f85149;}
+        .btn-stop:disabled{opacity:.4;cursor:default;}
+
+        /* GRID - semua baris fixed px */
+        .grid{
+            display:grid;
+            grid-template-columns:1fr 240px;
+            grid-template-rows:32px 1fr 18px;
+            gap:2px;
+            flex:1;
+            overflow:hidden;
+        }
+
+        /* STATUS ROW - each card fixed 32px */
+        .status-row{
+            grid-column:1/-1;
+            display:grid;
+            grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;
+            gap:2px;
+        }
+        .stat{
+            text-align:center;
+            display:flex;flex-direction:column;
+            align-items:center;justify-content:center;
+            height:32px;padding:0 4px;
+        }
+        .stat .lbl{font-size:6px;color:#8b949e;text-transform:uppercase;letter-spacing:.3px;line-height:1;}
+        .stat .val{font-size:13px;font-weight:bold;line-height:1.3;}
+        .stat .unit{font-size:6px;color:#8b949e;line-height:1;}
+        .stat-sys .val{color:#ff7b72;}
+        .stat-dias .val{color:#7ee787;}
+        .stat-map .val{color:#d2a8ff;}
+        .stat-hr .val{color:#ffa657;}
+        .stat-cuff .val{color:#79c0ff;}
+
+        /* STATE card - fixed 32px */
+        .stat-state{
+            display:flex;align-items:center;justify-content:center;
+            gap:4px;height:32px;padding:0 8px;
+        }
+        .stat-state .val{font-size:8px;font-weight:bold;}
+        .dot{
+            width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0;
+        }
+        .dot.idle{background:#8b949e;}
+        .dot.inflating{background:#d29922;animation:pulse .4s infinite;}
+        .dot.measuring{background:#58a6ff;animation:pulse .8s infinite;}
+        .dot.complete{background:#3fb950;}
+        .dot.error{background:#f85149;animation:pulse .15s infinite;}
+        @keyframes pulse{
+            0%,100%{opacity:1;transform:scale(1);}
+            50%{opacity:.5;transform:scale(1.2);}
+        }
+
+        /* CHARTS AREA - 2x2 grid statis */
+        .chart-area{
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            grid-template-rows:1fr 1fr;
+            gap:2px;
+            min-height:0;
+        }
+        .chart-area .panel{
+            padding:2px 4px 1px;
+            display:flex;flex-direction:column;
+            min-height:0;
+        }
+        .chart-area .panel .title{
+            font-size:6px;color:#8b949e;text-transform:uppercase;
+            letter-spacing:.3px;flex-shrink:0;height:10px;
+        }
+        .chart-area .panel canvas{flex:1;width:100%!important;height:auto!important;min-height:0;}
+
+        /* SIDEBAR */
+        .sidebar{
+            grid-row:2/4;grid-column:2;
+            display:flex;flex-direction:column;
+            gap:2px;overflow:hidden;
+        }
+        .sidebar .panel{
+            padding:3px 5px;
+            overflow:hidden;display:flex;flex-direction:column;
+        }
+        .sidebar .panel .title{
+            font-size:6px;color:#8b949e;text-transform:uppercase;
+            letter-spacing:.3px;height:10px;flex-shrink:0;
+        }
+        .sidebar .panel:first-child{flex:0 0 auto;}
+        .sidebar .panel:last-child{flex:1;min-height:0;}
+
+        /* RESULT - inner card statis */
+        .result-box{
+            text-align:center;padding:4px 6px;
+            border:1px solid #30363d;border-radius:3px;
+            flex-shrink:0;
+        }
+        .result-box.show{border-color:#3fb950;background:#0f2d16;}
+        .result-box .big{font-size:18px;font-weight:bold;line-height:1.3;}
+        .result-box .big .sys{color:#ff7b72;}
+        .result-box .big .s{color:#8b949e;}
+        .result-box .big .dias{color:#7ee787;}
+        .result-box .sub{font-size:8px;color:#8b949e;}
+        .result-box .sub span{margin:0 4px;}
+        .result-box .sub .v{color:#c9d1d9;font-weight:bold;}
+
+        /* DATA TABLE - scroll statis */
+        .table-wrap{
+            flex:1;overflow-y:auto;font-size:7px;min-height:0;
+        }
+        .table-wrap::-webkit-scrollbar{width:3px;}
+        .table-wrap::-webkit-scrollbar-track{background:#0d1117;}
+        .table-wrap::-webkit-scrollbar-thumb{background:#30363d;border-radius:2px;}
+        .table-wrap table{width:100%;border-collapse:collapse;}
+        .table-wrap th{
+            text-align:left;padding:1px 3px;
+            border-bottom:1px solid #30363d;color:#8b949e;
+            font-size:7px;font-weight:normal;
+            position:sticky;top:0;background:#161b22;
+        }
+        .table-wrap td{padding:1px 3px;border-bottom:1px solid #21262d;}
+        .table-wrap tr:hover td{background:#21262d;}
+
+        /* BOTTOM - fixed 18px */
+        .bottom-bar{
+            grid-column:1;
+            display:flex;align-items:center;
+            justify-content:space-between;
+            padding:0 8px;height:18px;
+            font-size:7px;color:#8b949e;
+        }
+        .bottom-bar strong{color:#c9d1d9;font-weight:600;}
+
+        @media(max-width:800px){
+            body{padding:1px;gap:1px;}
+            .grid{grid-template-columns:1fr;gap:1px;}
+            .status-row{grid-template-columns:repeat(3,1fr);}
+            .sidebar{grid-row:auto;grid-column:1;}
+            .chart-area{grid-template-columns:1fr;}
+        }
+    </style>
+</head>
+<body>
+
+<div class="topbar card">
+    <div class="logo">CuffnCode <span>/ simulator</span></div>
+    <div class="btn-group">
+        <button class="btn btn-start" id="btn-start" onclick="start()">▶ Mulai</button>
+        <button class="btn btn-stop" id="btn-stop" onclick="stop()" disabled>■ Stop</button>
+        <button class="btn" onclick="resetAll()">↺ Reset</button>
+        <button class="btn" onclick="exportCSV()">⬇ CSV</button>
+    </div>
+    <div class="info">IFAC Activity Fund 2025-2026</div>
+</div>
+
+<div class="grid">
+
+    <div class="status-row">
+        <div class="card stat stat-sys">
+            <div class="lbl">Sistolik</div>
+            <div class="val" id="s-sys">--</div>
+            <div class="unit">mmHg</div>
+        </div>
+        <div class="card stat stat-dias">
+            <div class="lbl">Diastolik</div>
+            <div class="val" id="s-dias">--</div>
+            <div class="unit">mmHg</div>
+        </div>
+        <div class="card stat stat-map">
+            <div class="lbl">MAP</div>
+            <div class="val" id="s-map">--</div>
+            <div class="unit">mmHg</div>
+        </div>
+        <div class="card stat stat-hr">
+            <div class="lbl">Heart Rate</div>
+            <div class="val" id="s-hr">--</div>
+            <div class="unit">bpm</div>
+        </div>
+        <div class="card stat stat-cuff">
+            <div class="lbl">Cuff</div>
+            <div class="val" id="s-cuff">0</div>
+            <div class="unit">mmHg</div>
+        </div>
+        <div class="card stat-state">
+            <span class="dot idle" id="dot"></span>
+            <span class="val" id="s-state">IDLE</span>
+        </div>
+    </div>
+
+    <div class="chart-area">
+        <div class="panel card">
+            <div class="title">Tekanan Cuff (mmHg)</div>
+            <canvas id="chart-p"></canvas>
+        </div>
+        <div class="panel card">
+            <div class="title">Osilasi</div>
+            <canvas id="chart-o"></canvas>
+        </div>
+        <div class="panel card">
+            <div class="title">Envelope Oscillometric</div>
+            <canvas id="chart-e"></canvas>
+        </div>
+        <div class="panel card" style="padding:2px 5px;">
+            <div class="title" style="margin-bottom:1px;">Info</div>
+            <table style="width:100%;font-size:7px;border-collapse:collapse;">
+                <tr><td style="color:#8b949e;padding:0 3px;">Waktu</td><td style="text-align:right;padding:0 3px;" id="i-time">0s</td></tr>
+                <tr><td style="color:#8b949e;padding:0 3px;">Sampel</td><td style="text-align:right;padding:0 3px;" id="i-samp">0</td></tr>
+                <tr><td style="color:#8b949e;padding:0 3px;">Filter</td><td style="text-align:right;padding:0 3px;">FIR+IIR+Notch</td></tr>
+                <tr><td style="color:#8b949e;padding:0 3px;">Status</td><td style="text-align:right;padding:0 3px;" id="i-state">SIAP</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="panel card" style="flex:0 0 auto;">
+            <div class="title">Hasil</div>
+            <div class="result-box" id="result-box">
+                <div class="big">
+                    <span class="sys" id="r-sys">--</span>
+                    <span class="s">/</span>
+                    <span class="dias" id="r-dias">--</span>
+                </div>
+                <div class="sub">
+                    <span>MAP <span class="v" id="r-map">--</span></span>
+                    <span>HR <span class="v" id="r-hr">--</span></span>
+                    <span id="r-valid" style="color:#8b949e;">menunggu...</span>
+                </div>
+            </div>
+        </div>
+        <div class="panel card">
+            <div class="title">Data</div>
+            <div class="table-wrap" id="table-wrap">
+                <table>
+                    <thead><tr><th>t(ms)</th><th>P(mmHg)</th><th>Osc</th><th>St</th></tr></thead>
+                    <tbody id="t-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-bar card">
+        <span>Sampling: <strong>1000 Hz</strong></span>
+        <span>Algoritma: <strong>Oscillometric</strong></span>
+        <span id="b-time">0s</span>
+    </div>
+</div>
+
+<script>
+const STATE={IDLE:0,INFLATING:1,MEASURING:2,COMPLETE:3,ERROR:4};
+const SN=["IDLE","INFLATING","MEASURE","OK","ERROR"];
+const MAX_PTS=150;
+const SIM_MS=50;
+
+let running=false,state=STATE.IDLE,tick=0,cuffP=0,timer=null;
+let samples=[],envP=[],envA=[],maxA=0,mapV=0,sys=0,dias=0,hr=0,startTick=0;
+let lastOsc=0,oscPeriod=0,oscCount=0,lastPeakTick=0;
+
+function $(id){return document.getElementById(id);}
+function mkC(id){return $(id).getContext('2d');}
+
+const cP=new Chart(mkC('chart-p'),{
+    type:'line',data:{labels:[],datasets:[{
+        label:'',data:[],borderColor:'#58a6ff',
+        backgroundColor:ctx=>{
+            const g=ctx.chart.ctx.createLinearGradient(0,0,0,ctx.chart.height);
+            g.addColorStop(0,'rgba(88,166,255,.25)');
+            g.addColorStop(1,'rgba(88,166,255,.02)');
+            return g;
+        },fill:true,
+        tension:.5,pointRadius:0,borderWidth:2
+    }]},
+    options:{
+        responsive:true,maintainAspectRatio:false,
+        animation:{duration:0},
+        scales:{
+            x:{display:true,ticks:{color:'#8b949e',font:{size:6},maxTicksLimit:6,maxRotation:0}},
+            y:{min:0,max:220,ticks:{color:'#8b949e',font:{size:6},maxTicksLimit:6}}
+        },
+        plugins:{legend:{display:false}},
+        elements:{point:{radius:0},line:{cubicInterpolationMode:'monotone'}}
+    }
+});
+
+const cO=new Chart(mkC('chart-o'),{
+    type:'line',data:{labels:[],datasets:[{
+        label:'',data:[],borderColor:'#f0883e',
+        backgroundColor:ctx=>{
+            const g=ctx.chart.ctx.createLinearGradient(0,0,0,ctx.chart.height);
+            g.addColorStop(0,'rgba(240,136,62,.2)');
+            g.addColorStop(1,'rgba(240,136,62,.01)');
+            return g;
+        },fill:true,
+        tension:.5,pointRadius:0,borderWidth:1.5
+    }]},
+    options:{
+        responsive:true,maintainAspectRatio:false,
+        animation:{duration:0},
+        scales:{
+            x:{display:true,ticks:{color:'#8b949e',font:{size:6},maxTicksLimit:6,maxRotation:0}},
+            y:{ticks:{color:'#8b949e',font:{size:6},maxTicksLimit:5}}
+        },
+        plugins:{legend:{display:false}},
+        elements:{point:{radius:0},line:{cubicInterpolationMode:'monotone'}}
+    }
+});
+
+const cE=new Chart(mkC('chart-e'),{
+    type:'scatter',data:{datasets:[{
+        label:'Envelope',data:[],backgroundColor:'rgba(210,168,255,.6)',
+        pointRadius:2,showLine:true,borderColor:'rgba(210,168,255,.35)',
+        tension:.4,borderWidth:1,fill:false
+    },{
+        label:'MAP',data:[],backgroundColor:'#3fb950',pointRadius:4,pointStyle:'star'
+    },{
+        label:'SYS',data:[],backgroundColor:'#ff7b72',pointRadius:3,pointStyle:'triangle'
+    },{
+        label:'DIAS',data:[],backgroundColor:'#7ee787',pointRadius:3,pointStyle:'triangle'
+    }]},
+    options:{
+        responsive:true,maintainAspectRatio:false,
+        animation:{duration:0},
+        scales:{
+            x:{title:{display:true,text:'mmHg',color:'#8b949e',font:{size:6}},ticks:{color:'#8b949e',font:{size:6},maxTicksLimit:6}},
+            y:{ticks:{color:'#8b949e',font:{size:6},maxTicksLimit:5}}
+        },
+        plugins:{legend:{display:false}},
+        elements:{line:{cubicInterpolationMode:'monotone'}}
+    }
+});
+
+function upd(){
+    $('s-cuff').textContent=Math.round(cuffP);
+    $('s-state').textContent=SN[state];
+    const d=$('dot');
+    d.className='dot '+['idle','inflating','measuring','complete','error'][state];
+    $('i-time').textContent=(tick*.1).toFixed(1)+'s';
+    $('i-samp').textContent=samples.length;
+    $('i-state').textContent=['SIAP','INFLASI','MENGUKUR','SELESAI','ERROR'][state];
+    $('b-time').textContent=(tick*.1).toFixed(1)+'s';
+    /* real-time status di result box selama MEASURING */
+    if(state===STATE.MEASURING){
+        $('r-valid').textContent='MENGUKUR...';
+        if(mapV>0&&!$('r-map').textContent)
+            $('r-map').textContent=Math.round(mapV);
+    }
+}
+
+function showR(){
+    $('result-box').className='result-box show';
+    $('r-sys').textContent=sys;
+    $('r-dias').textContent=dias;
+    $('r-map').textContent=Math.round(mapV);
+    $('r-hr').textContent=hr;
+    $('r-valid').textContent=(sys>0&&dias>0)?'VALID':'ERROR';
+    $('s-sys').textContent=sys;
+    $('s-dias').textContent=dias;
+    $('s-map').textContent=Math.round(mapV);
+    $('s-hr').textContent=hr;
+}
+
+function addR(t,p,o,s){
+    const tb=$('t-body');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${t}</td><td>${p.toFixed(1)}</td><td>${o.toFixed(3)}</td><td>${s}</td>`;
+    tb.appendChild(tr);
+    const w=$('table-wrap');
+    w.scrollTop=w.scrollHeight;
+    while(tb.children.length>200)tb.removeChild(tb.firstChild);
+}
+
+function sim(){
+    if(!running)return;
+    tick++;const t=tick;
+    let pS,oS;
+
+    if(state===STATE.INFLATING){
+        cuffP=Math.min(180,(t-startTick)*6);
+        pS=cuffP+(Math.random()-.5)*1.5;
+        oS=0;
+        if(cuffP>=180)state=STATE.MEASURING;
+    }
+    else if(state===STATE.MEASURING){
+        const el=t-startTick-30;
+        cuffP=Math.max(20,180-el*.4);
+        const env=Math.max(0,Math.sin((cuffP-20)/160*Math.PI));
+        oS=Math.sin(el*1.2*.1*Math.PI)*env*5;
+        pS=cuffP+oS*.3+(Math.random()-.5)*.5;
+        const a=Math.abs(oS);
+        if(a>.1){
+            envA.push(a);envP.push(cuffP);
+            if(a>maxA){maxA=a;mapV=cuffP;
+                $('s-map').textContent=Math.round(mapV);
+            }
+        }
+        /* real-time HR dari zero crossing osilasi */
+        if(lastOsc!==0 && oS*lastOsc<0 && a>.3){
+            const cyc=t-lastPeakTick;
+            if(cyc>5&&cyc<50){oscPeriod+=cyc;oscCount++;
+                if(oscCount>0)hr=Math.round(6000/(oscPeriod/oscCount));
+                $('s-hr').textContent=hr;
+            }
+            lastPeakTick=t;
+        }
+        lastOsc=oS;
+        if(cuffP<=22){
+            const st=maxA*.55,dt=maxA*.75;
+            for(let i=0;i<envA.length;i++){
+                if(envP[i]>mapV&&envA[i]<=st){sys=Math.round(envP[i]);break;}
+            }
+            if(!sys)sys=Math.round(mapV+25);
+            for(let i=envA.length-1;i>=0;i--){
+                if(envP[i]<mapV&&envA[i]<=dt){dias=Math.round(envP[i]);break;}
+            }
+            if(!dias)dias=Math.round(mapV-15);
+            if(!hr)hr=Math.round(72+(Math.random()-.5)*10);
+            /* update status & result box real-time sebelum COMPLETE */
+            $('s-sys').textContent=sys;
+            $('s-dias').textContent=dias;
+            $('s-hr').textContent=hr;
+            $('result-box').className='result-box show';
+            $('r-sys').textContent=sys;
+            $('r-dias').textContent=dias;
+            $('r-map').textContent=Math.round(mapV);
+            $('r-hr').textContent=hr;
+            $('r-valid').textContent=(sys>0&&dias>0)?'VALID':'ERROR';
+            state=STATE.COMPLETE;
+        } else if(t%3===0){
+            /* update real-time MAP & HR di result box selama pengukuran */
+            if(mapV>0)$('r-map').textContent=Math.round(mapV);
+            if(hr>0)$('r-hr').textContent=hr;
+        }
+    }
+    else if(state===STATE.COMPLETE){
+        $('r-valid').textContent='SELESAI';
+        $('btn-start').disabled=false;
+        $('btn-stop').disabled=true;
+        running=false;return;
+    }
+
+    if(state===STATE.INFLATING||state===STATE.MEASURING){
+        samples.push({t:t*100,p:pS,o:oS,s:state});
+        const lb=(t*.1).toFixed(1);
+        cP.data.labels.push(lb);
+        cP.data.datasets[0].data.push(pS);
+        if(cP.data.labels.length>MAX_PTS){cP.data.labels.shift();cP.data.datasets[0].data.shift();}
+        cP.update('none');
+        cO.data.labels.push(lb);
+        cO.data.datasets[0].data.push(oS);
+        if(cO.data.labels.length>MAX_PTS){cO.data.labels.shift();cO.data.datasets[0].data.shift();}
+        cO.update('none');
+        if(envA.length>0){
+            const pts=[];for(let i=0;i<envA.length;i++)pts.push({x:envP[i],y:envA[i]});
+            cE.data.datasets[0].data=pts;
+            if(mapV>0)cE.data.datasets[1].data=[{x:mapV,y:maxA}];
+            cE.update('none');
+        }
+        if(t%2===0)addR(t*100,pS,oS,SN[state]);
+        upd();
+    }
+    timer=setTimeout(sim,SIM_MS);
+}
+
+function start(){
+    if(running)return;
+    if(state===STATE.COMPLETE)resetAll();
+    running=true;state=STATE.INFLATING;
+    startTick=tick+1;
+    cuffP=0;envA=[];envP=[];maxA=0;oscPeriod=0;oscCount=0;lastOsc=0;lastPeakTick=0;
+    $('btn-start').disabled=true;
+    $('btn-stop').disabled=false;
+    $('result-box').className='result-box';
+    sim();
+}
+
+function stop(){
+    running=false;state=STATE.ERROR;clearTimeout(timer);
+    upd();
+    $('btn-start').disabled=false;
+    $('btn-stop').disabled=true;
+}
+
+function resetAll(){
+    running=false;clearTimeout(timer);
+    state=STATE.IDLE;tick=0;cuffP=0;samples=[];envA=[];envP=[];
+    maxA=0;mapV=0;sys=0;dias=0;hr=0;oscPeriod=0;oscCount=0;lastOsc=0;lastPeakTick=0;
+    $('btn-start').disabled=false;
+    $('btn-stop').disabled=true;
+    $('result-box').className='result-box';
+    $('s-sys').textContent='--';
+    $('s-dias').textContent='--';
+    $('s-map').textContent='--';
+    $('s-hr').textContent='--';
+    cP.data.labels=[];cP.data.datasets[0].data=[];cP.update();
+    cO.data.labels=[];cO.data.datasets[0].data=[];cO.update();
+    cE.data.datasets[0].data=[];cE.data.datasets[1].data=[];
+    cE.data.datasets[2].data=[];cE.data.datasets[3].data=[];cE.update();
+    $('t-body').innerHTML='';
+    upd();
+}
+
+function exportCSV(){
+    let c='timestamp_ms,pressure_mmHg,oscillation,state\n';
+    for(const s of samples)c+=`${s.t},${s.p.toFixed(2)},${s.o.toFixed(4)},${s.s}\n`;
+    const b=new Blob([c],{type:'text/csv'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);a.download='cuffncode.csv';
+    a.click();URL.revokeObjectURL(a);
+}
+
+resetAll();
+</script>
+</body>
+</html>

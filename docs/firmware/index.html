@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Dokumentasi Firmware CuffnCode - Arsitektur, API, build instructions, algoritma oscillometric">
+    <title>CuffnCode - Dokumentasi Firmware</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" href="../../images/cuffncode.png" type="image/png">
+</head>
+<body>
+    <header class="site-header">
+        <div class="logo">
+            <button id="menu-toggle" class="menu-toggle" aria-label="Toggle menu">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <img src="../../images/cuffncode.png" alt="CuffnCode Logo">
+            <span>CuffnCode</span>
+        </div>
+        <div class="header-right">
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <nav id="sidebar" class="sidebar">
+        <ul class="sidebar-nav">
+            <li class="nav-section">Umum</li>
+            <li><a href="../index.html">Beranda</a></li>
+
+            <li class="nav-section">Firmware</li>
+            <li><a href="index.html" class="active">Ikhtisar Firmware</a></li>
+            <li><a href="#arsitektur">Arsitektur</a></li>
+            <li class="nav-sub"><a href="#state-machine">State Machine</a></li>
+            <li><a href="#file-structure">Struktur File</a></li>
+            <li><a href="#api">API Documentation</a></li>
+            <li class="nav-sub"><a href="#api-adc">ADC Driver</a></li>
+            <li class="nav-sub"><a href="#api-pump">Pump Control</a></li>
+            <li class="nav-sub"><a href="#api-valve">Valve Control</a></li>
+            <li class="nav-sub"><a href="#api-filter">Digital Filter</a></li>
+            <li class="nav-sub"><a href="#api-pressure">Pressure Algorithm</a></li>
+            <li class="nav-sub"><a href="#api-uart">UART Interface</a></li>
+            <li><a href="#build">Build Instructions</a></li>
+            <li><a href="#uart-protocol">UART Protocol</a></li>
+            <li><a href="#algorithm">Algoritma</a></li>
+            <li><a href="#next">Rencana</a></li>
+
+            <li class="nav-section">Hardware</li>
+            <li><a href="../hardware/index.html">Dokumentasi Hardware</a></li>
+
+            <li class="nav-section">Resources</li>
+            <li><a href="https://github.com/Student-Embedded-Control-and-AI-Fest/CuffnCode" target="_blank">GitHub Repo</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <h1>Dokumentasi Firmware</h1>
+
+        <!-- Architecture -->
+        <section id="arsitektur">
+            <h2>Arsitektur Firmware</h2>
+            <p>
+                Firmware CuffnCode dibangun di atas <strong>STM32 HAL (Hardware Abstraction Layer)</strong>
+                dengan arsitektur berbasis <em>state machine</em>. Setiap modul hardware memiliki driver
+                sendiri dengan API yang bersih dan terdokumentasi.
+            </p>
+
+            <h3>Layers</h3>
+            <table>
+                <tr><th>Layer</th><th>Komponen</th><th>Fungsi</th></tr>
+                <tr><td>Application</td><td>main.c, pressure.c</td><td>State machine, algoritma oscillometric</td></tr>
+                <tr><td>Driver</td><td>adc.c, pump.c, valve.c, uart.c</td><td>Hardware abstraction</td></tr>
+                <tr><td>Signal Processing</td><td>filter.c</td><td>FIR, IIR, moving average, notch filter</td></tr>
+                <tr><td>HAL</td><td>STM32F4xx_HAL_Driver</td><td>STM32 Hardware Abstraction Layer</td></tr>
+                <tr><td>CMSIS</td><td>CMSIS-Core</td><td>Cortex-M4 CMSIS</td></tr>
+            </table>
+        </section>
+
+        <!-- State Machine -->
+        <section id="state-machine">
+            <h2>State Machine</h2>
+            <p>
+                Sistem dikontrol oleh finite state machine dengan 6 state:
+            </p>
+
+            <pre><code>IDLE → (CMD 's') → INFLATING → (target tercapai) → MEASURING
+MEASURING → (tekanan &lt; 20) → COMPLETE → IDLE
+ANY → (error) → ERROR → (CMD 'r') → IDLE
+IDLE → (CMD 'd') → DUMP → IDLE</code></pre>
+
+            <table>
+                <tr><th>State</th><th>Deskripsi</th><th>Aksi</th></tr>
+                <tr><td><code>STATE_IDLE</code></td><td>Mode standby</td><td>LED slow blink 1Hz, tunggu command UART</td></tr>
+                <tr><td><code>STATE_INFLATING</code></td><td>Cuff mengembang</td><td>Pump ON sampai 180mmHg, monitor tekanan</td></tr>
+                <tr><td><code>STATE_MEASURING</code></td><td>Mengukur tekanan</td><td>Valve controlled deflation, sampling 1kHz</td></tr>
+                <tr><td><code>STATE_COMPLETE</code></td><td>Pengukuran selesai</td><td>Kirim hasil via UART (JSON + CSV), LED flash</td></tr>
+                <tr><td><code>STATE_ERROR</code></td><td>Error terdeteksi</td><td>Emergency deflation, LED SOS pattern</td></tr>
+                <tr><td><code>STATE_DUMP</code></td><td>Dump data mentah</td><td>Kirim raw buffer via UART (CSV format)</td></tr>
+            </table>
+
+            <h3>Timing</h3>
+            <table>
+                <tr><th>Fase</th><th>Durasi</th><th>Keterangan</th></tr>
+                <tr><td>Inflasi</td><td>~10-20 detik</td><td>Tergantung ukuran cuff dan efisiensi pompa</td></tr>
+                <tr><td>Defulasi + Sampling</td><td>~30-45 detik</td><td>3-5 mmHg/s, dari 180 ke 20 mmHg</td></tr>
+                <tr><td>Total Pengukuran</td><td>~40-60 detik</td><td>Timeout otomatis di 60 detik</td></tr>
+            </table>
+        </section>
+
+        <!-- File Structure -->
+        <section id="file-structure">
+            <h2>Struktur File Firmware</h2>
+            <div class="tree-view">
+                <div class="tree-item">
+                    <span class="tree-folder">📁 Firmware/</span>
+                    <div class="indent">
+                        <div><span class="tree-folder">📁 Core/</span></div>
+                        <div class="indent">
+                            <div><span class="tree-folder">📁 Inc/ (Headers)</span></div>
+                            <div class="indent">
+                                <div><span class="tree-file">📄 main.h</span> - Definisi pin, konstanta, state machine, struktur data</div>
+                                <div><span class="tree-file">📄 adc.h</span> - Driver ADC</div>
+                                <div><span class="tree-file">📄 pump.h</span> - Kontrol pompa</div>
+                                <div><span class="tree-file">📄 valve.h</span> - Kontrol katup</div>
+                                <div><span class="tree-file">📄 filter.h</span> - Filter digital</div>
+                                <div><span class="tree-file">📄 pressure.h</span> - Algoritma tekanan</div>
+                                <div><span class="tree-file">📄 uart.h</span> - Komunikasi serial</div>
+                            </div>
+                            <div><span class="tree-folder">📁 Src/ (Sources)</span></div>
+                            <div class="indent">
+                                <div><span class="tree-file">📄 main.c</span> - State machine, inisialisasi, main loop</div>
+                                <div><span class="tree-file">📄 adc.c</span> - ADC + DMA + kalibrasi</div>
+                                <div><span class="tree-file">📄 pump.c</span> - Kontrol pompa + proteksi</div>
+                                <div><span class="tree-file">📄 valve.c</span> - Kontrol katup + deflasi</div>
+                                <div><span class="tree-file">📄 filter.c</span> - FIR, IIR, moving average, notch</div>
+                                <div><span class="tree-file">📄 pressure.c</span> - Oscillometric algorithm</div>
+                                <div><span class="tree-file">📄 uart.c</span> - UART ring buffer, CSV/JSON output</div>
+                                <div><span class="tree-file">📄 system_stm32f4xx.c</span> - System clock init</div>
+                            </div>
+                            <div><span class="tree-folder">📁 Startup/</span></div>
+                            <div class="indent">
+                                <div><span class="tree-file">📄 startup_stm32f411xe.s</span> - Startup assembly</div>
+                                <div><span class="tree-file">📄 STM32F411CEUx_FLASH.ld</span> - Linker script</div>
+                            </div>
+                        </div>
+                        <div><span class="tree-folder">📁 Drivers/</span></div>
+                        <div class="indent">
+                            <div><span class="tree-folder">📁 CMSIS/</span> - Cortex-M headers</div>
+                            <div><span class="tree-folder">📁 STM32F4xx_HAL_Driver/</span> - HAL source</div>
+                        </div>
+                        <div><span class="tree-file">📄 Makefile</span> - ARM GCC build system</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- API Documentation -->
+        <section id="api">
+            <h2>API Documentation</h2>
+
+            <!-- ADC -->
+            <section id="api-adc">
+                <h3>ADC Driver (<code>adc.c/h</code>)</h3>
+                <p>Driver untuk ADC1 dengan DMA double buffer dan timer trigger @1kHz.</p>
+
+                <h4>Fungsi Utama</h4>
+                <table>
+                    <tr><th>Fungsi</th><th>Deskripsi</th></tr>
+                    <tr><td><code>ADC_Init()</code></td><td>Inisialisasi parameter kalibrasi</td></tr>
+                    <tr><td><code>ADC_Calibrate()</code></td><td>Kalibrasi offset ADC (100 sampel rata-rata)</td></tr>
+                    <tr><td><code>ADC_GetRawValue()</code></td><td>Mendapatkan nilai ADC mentah (0-4095)</td></tr>
+                    <tr><td><code>ADC_GetVoltage()</code></td><td>Konversi ke tegangan (V)</td></tr>
+                    <tr><td><code>ADC_GetPressure_mmHg()</code></td><td>Konversi ke tekanan (mmHg)</td></tr>
+                    <tr><td><code>ADC_StartSampling()</code></td><td>Mulai sampling DMA + timer</td></tr>
+                    <tr><td><code>ADC_StopSampling()</code></td><td>Hentikan sampling</td></tr>
+                </table>
+
+                <h4>Konversi ADC ke mmHg</h4>
+                <div class="equation">
+                    V<sub>adc</sub> = (raw × 3.3V) / 4095<br>
+                    P<sub>mmHg</sub> = (V<sub>adc</sub> - 1.5V) × 300 / (3.3V - 1.5V)
+                </div>
+            </section>
+
+            <!-- Pump -->
+            <section id="api-pump">
+                <h3>Pump Control (<code>pump.c/h</code>)</h3>
+                <p>Driver untuk pompa mini via GPIO PA8 (MOSFET).</p>
+
+                <table>
+                    <tr><th>Fungsi</th><th>Deskripsi</th></tr>
+                    <tr><td><code>Pump_Init()</code></td><td>Inisialisasi GPIO pump, set OFF</td></tr>
+                    <tr><td><code>Pump_On()</code></td><td>Aktifkan pompa</td></tr>
+                    <tr><td><code>Pump_Off()</code></td><td>Matikan pompa</td></tr>
+                    <tr><td><code>Pump_IsOn()</code></td><td>Cek status pompa</td></tr>
+                    <tr><td><code>Pump_InflateTo(target)</code></td><td>Inflasi ke tekanan target (blocking)</td></tr>
+                    <tr><td><code>Pump_Process(current)</code></td><td>Proses inflasi non-blocking</td></tr>
+                    <tr><td><code>Pump_Reset()</code></td><td>Reset state pompa</td></tr>
+                </table>
+            </section>
+
+            <!-- Valve -->
+            <section id="api-valve">
+                <h3>Valve Control (<code>valve.c/h</code>)</h3>
+                <p>Driver untuk katup solenoid via GPIO PB0 (MOSFET).</p>
+
+                <table>
+                    <tr><th>Fungsi</th><th>Deskripsi</th></tr>
+                    <tr><td><code>Valve_Init()</code></td><td>Inisialisasi GPIO valve, set CLOSE</td></tr>
+                    <tr><td><code>Valve_Open()</code></td><td>Buka katup</td></tr>
+                    <tr><td><code>Valve_Close()</code></td><td>Tutup katup</td></tr>
+                    <tr><td><code>Valve_SetPosition(%)</code></td><td>Atur bukaan katup (0-100%)</td></tr>
+                    <tr><td><code>Valve_QuickDump()</code></td><td>Buka penuh (emergency deflation)</td></tr>
+                    <tr><td><code>Valve_ProcessDeflation(ms)</code></td><td>Proses deflasi terkontrol, return true jika selesai</td></tr>
+                </table>
+            </section>
+
+            <!-- Filter -->
+            <section id="api-filter">
+                <h3>Digital Filter (<code>filter.c/h</code>)</h3>
+                <p>Empat jenis filter digital untuk pemrosesan sinyal tekanan:</p>
+
+                <table>
+                    <tr><th>Filter</th><th>Tipe</th><th>Parameter</th><th>Fungsi</th></tr>
+                    <tr><td>Low-Pass</td><td>FIR, 51 taps</td><td>Cutoff 20Hz</td><td><code>Filter_LowPass()</code></td></tr>
+                    <tr><td>Moving Average</td><td>Window</td><td>10 sampel</td><td><code>Filter_MovingAverage()</code></td></tr>
+                    <tr><td>Band-Pass</td><td>IIR Biquad</td><td>0.5-5 Hz</td><td><code>Filter_BandPass()</code></td></tr>
+                    <tr><td>Notch</td><td>IIR Biquad</td><td>50 Hz, Q=30</td><td><code>Filter_Notch()</code></td></tr>
+                </table>
+
+                <h4>Digital Filtering Chain</h4>
+                <pre><code>Input (ADC raw)
+  ↓
+Low-Pass FIR 20Hz → DC pressure signal
+  ↓
+Band-Pass IIR 0.5-5Hz → Oscillation signal
+  ↓
+Notch IIR 50Hz → Remove powerline hum
+  ↓
+Output ke pressure.c untuk analisis oscillometric</code></pre>
+            </section>
+
+            <!-- Pressure -->
+            <section id="api-pressure">
+                <h3>Pressure Algorithm (<code>pressure.c/h</code>)</h3>
+                <p>Implementasi algoritma oscillometric untuk pengukuran tekanan darah.</p>
+
+                <table>
+                    <tr><th>Fungsi</th><th>Deskripsi</th></tr>
+                    <tr><td><code>Pressure_Init()</code></td><td>Inisialisasi modul</td></tr>
+                    <tr><td><code>Pressure_ProcessSample(p, t)</code></td><td>Proses sampel tekanan baru</td></tr>
+                    <tr><td><code>Pressure_ExtractEnvelope()</code></td><td>Ekstrak envelope osilasi</td></tr>
+                    <tr><td><code>Pressure_CalculateResults()</code></td><td>Hitung SBP/DBP/MAP/HR</td></tr>
+                    <tr><td><code>Pressure_GetResults()</code></td><td>Dapatkan hasil pengukuran</td></tr>
+                    <tr><td><code>Pressure_GetCurrentPressure()</code></td><td>Tekanan terkini (mmHg)</td></tr>
+                    <tr><td><code>Pressure_GetOscillation()</code></td><td>Amplitudo osilasi terkini</td></tr>
+                    <tr><td><code>Pressure_StartMeasurement()</code></td><td>Mulai sesi pengukuran</td></tr>
+                    <tr><td><code>Pressure_StopMeasurement()</code></td><td>Hentikan sesi</td></tr>
+                    <tr><td><code>Pressure_Reset()</code></td><td>Reset semua data</td></tr>
+                    <tr><td><code>Pressure_DumpRawData()</code></td><td>Dump raw buffer via UART</td></tr>
+                </table>
+            </section>
+
+            <!-- UART -->
+            <section id="api-uart">
+                <h3>UART Interface (<code>uart.c/h</code>)</h3>
+                <p>Komunikasi serial USART2 @115200 baud, 8-N-1, interrupt-based dengan ring buffer.</p>
+
+                <table>
+                    <tr><th>Fungsi</th><th>Deskripsi</th></tr>
+                    <tr><td><code>UART_Init()</code></td><td>Inisialisasi UART</td></tr>
+                    <tr><td><code>UART_SendString(s)</code></td><td>Kirim string via UART</td></tr>
+                    <tr><td><code>UART_SendData(d, len)</code></td><td>Kirim data binary</td></tr>
+                    <tr><td><code>UART_Printf(fmt, ...)</code></td><td>Printf via UART</td></tr>
+                    <tr><td><code>UART_ReadChar()</code></td><td>Baca karakter RX (non-blocking)</td></tr>
+                    <tr><td><code>UART_Available()</code></td><td>Jumlah data RX tersedia</td></tr>
+                    <tr><td><code>UART_SendCSVHeader()</code></td><td>Kirim header CSV</td></tr>
+                    <tr><td><code>UART_SendCSVData(...)</code></td><td>Kirim satu baris data CSV</td></tr>
+                    <tr><td><code>UART_SendJSONResult(r)</code></td><td>Kirim hasil JSON</td></tr>
+                </table>
+            </section>
+        </section>
+
+        <!-- Build Instructions -->
+        <section id="build">
+            <h2>Build Instructions</h2>
+
+            <h3>Prerequisites</h3>
+            <ul>
+                <li><strong>ARM GCC Toolchain</strong> (<code>arm-none-eabi-gcc</code>)</li>
+                <li><strong>Make</strong> (GNU Make)</li>
+                <li><strong>STM32CubeProgrammer</strong> atau <strong>OpenOCD</strong> untuk flashing</li>
+                <li><strong>STM32CubeMX</strong> (opsional, untuk regenerasi kode HAL)</li>
+            </ul>
+
+            <h3>Build</h3>
+            <pre><code>cd Firmware/
+make all</code></pre>
+
+            <p>Output:</p>
+            <ul>
+                <li><code>build/cuffncode.elf</code> - ELF file (debug)</li>
+                <li><code>build/cuffncode.bin</code> - Binary file (flashing)</li>
+                <li><code>build/cuffncode.hex</code> - Intel HEX file</li>
+                <li><code>build/cuffncode.map</code> - Memory map</li>
+            </ul>
+
+            <h3>Flash via ST-Link</h3>
+            <pre><code>make flash          # Via STM32_Programmer_CLI
+make flash-openocd  # Via OpenOCD</code></pre>
+
+            <h3>Flash via STM32CubeProgrammer (Manual)</h3>
+            <pre><code>STM32_Programmer_CLI -c port=SWD -w build/cuffncode.bin 0x08000000 -v -rst</code></pre>
+
+            <h3>Clean</h3>
+            <pre><code>make clean</code></pre>
+
+            <div class="alert alert-warning">
+                <strong>Catatan:</strong> Pastikan ST-Link/V2 terhubung ke pin SWDIO dan SWCLK
+                Black Pill sebelum flashing.
+            </div>
+        </section>
+
+        <!-- UART Protocol -->
+        <section id="uart-protocol">
+            <h2>UART Protocol</h2>
+
+            <h3>Baudrate & Settings</h3>
+            <table>
+                <tr><th>Parameter</th><th>Nilai</th></tr>
+                <tr><td>Baudrate</td><td>115200</td></tr>
+                <tr><td>Data Bits</td><td>8</td></tr>
+                <tr><td>Parity</td><td>None</td></tr>
+                <tr><td>Stop Bits</td><td>1</td></tr>
+                <tr><td>Flow Control</td><td>None</td></tr>
+            </table>
+
+            <h3>Commands</h3>
+            <table>
+                <tr><th>Command</th><th>Fungsi</th></tr>
+                <tr><td><code>s</code> / <code>S</code></td><td>Mulai pengukuran tekanan darah</td></tr>
+                <tr><td><code>d</code> / <code>D</code></td><td>Dump raw data (CSV format)</td></tr>
+                <tr><td><code>r</code> / <code>R</code></td><td>Reset sistem dari error state</td></tr>
+                <tr><td><code>h</code> / <code>H</code></td><td>Tampilkan help</td></tr>
+            </table>
+
+            <h3>CSV Data Format</h3>
+            <p>Real-time data output selama pengukuran:</p>
+            <pre><code>timestamp_ms,pressure_mmHg,oscillation,state
+0,0.00,0.0000,1
+100,5.23,0.0012,1
+200,12.45,0.0034,1
+...</code></pre>
+
+            <h3>JSON Result Format</h3>
+            <p>Hasil pengukuran setelah selesai:</p>
+            <pre><code>{
+  "systolic": 120,
+  "diastolic": 80,
+  "map": 93.3,
+  "heart_rate": 72,
+  "valid": true
+}</code></pre>
+        </section>
+
+        <!-- Algorithm -->
+        <section id="algorithm">
+            <h2>Algoritma Oscillometric</h2>
+
+            <p>
+                Metode <strong>oscillometric</strong> adalah standar industri untuk pengukur tekanan
+                darah digital otomatis. Algoritma ini menganalisis osilasi dinding arteri yang
+                ditransmisikan ke cuff selama deflasi.
+            </p>
+
+            <h3>Prinsip Kerja</h3>
+            <ol>
+                <li><strong>Inflasi:</strong> Cuff dikembangkan hingga tekanan ~180 mmHg (di atas tekanan sistolik normal)</li>
+                <li><strong>Defulasi Bertahap:</strong> Katup membuka secara perlahan (~3-5 mmHg/s)</li>
+                <li><strong>Sampling:</strong> ADC membaca tekanan cuff dan osilasi @1000 Hz</li>
+                <li><strong>Filtering:</strong> Band-pass filter 0.5-5Hz mengekstrak osilasi dari sinyal DC tekanan</li>
+                <li><strong>Envelope:</strong> Amplitudo puncak osilasi diplot terhadap tekanan cuff</li>
+                <li><strong>MAP:</strong> Tekanan pada amplitudo osilasi maksimum</li>
+                <li><strong>SBP:</strong> Tekanan pada 55% amplitudo maksimum (sisi tekanan tinggi)</li>
+                <li><strong>DBP:</strong> Tekanan pada 75% amplitudo maksimum (sisi tekanan rendah)</li>
+                <li><strong>HR:</strong> Frekuensi osilasi = heart rate</li>
+            </ol>
+
+            <h3>Parameter Algoritma</h3>
+            <table>
+                <tr><th>Parameter</th><th>Nilai</th><th>Keterangan</th></tr>
+                <tr><td>Sampling Rate</td><td>1000 Hz</td><td>Frekuensi ADC + timer trigger</td></tr>
+                <tr><td>Band-pass Filter</td><td>0.5 - 5 Hz</td><td>Rentang frekuensi osilasi arteri</td></tr>
+                <tr><td>SBP Ratio</td><td>0.55 × max</td><td>Persentase amplitude untuk SBP</td></tr>
+                <tr><td>DBP Ratio</td><td>0.75 × max</td><td>Persentase amplitude untuk DBP</td></tr>
+                <tr><td>Peak Detection Window</td><td>20 sampel</td><td>Window untuk deteksi puncak</td></tr>
+                <tr><td>Envelope Smoothing</td><td>3 titik</td><td>Moving average envelope</td></tr>
+                <tr><td>Min Oscillation</td><td>0.01</td><td>Threshold minimum osilasi</td></tr>
+            </table>
+
+            <div class="alert alert-info">
+                <strong>Referensi:</strong> Rasio SBP (0.55) dan DBP (0.75) adalah nilai umum
+                untuk algoritma oscillometric. Nilai ini dapat disesuaikan berdasarkan kalibrasi
+                dengan alat referensi.
+            </div>
+
+            <h3>Signal Flow</h3>
+            <pre><code>Sensor MPS20N0040D (bridge)
+  │
+  ├── AD620 (gain 105x)
+  │     └── TLC2272 (offset 1.5V)
+  │           └── ADC STM32F411CE (12-bit, 1kHz)
+  │                 └── Double Buffer DMA
+  │                       └── Filter Chain
+  │                             ├── Low-Pass FIR 20Hz → DC Pressure
+  │                             ├── Band-Pass IIR 0.5-5Hz → Oscillation
+  │                             └── Notch IIR 50Hz → Clean Oscillation
+  │                                   └── Oscillometric Algorithm
+  │                                         ├── Peak Detection
+  │                                         ├── Envelope Extraction
+  │                                         └── SBP/DBP/MAP/HR Calculation
+  │                                               └── JSON Output via UART</code></pre>
+        </section>
+
+        <!-- Next Steps -->
+        <section id="next">
+            <h2>Rencana Pengembangan</h2>
+
+            <div class="card-grid">
+                <div class="card">
+                    <h3>🔊 Notch Filter</h3>
+                    <p>Implementasi adaptive notch filter 50/60Hz dengan kemampuan auto-detect frekuensi hum.</p>
+                </div>
+                <div class="card">
+                    <h3>📐 PCB Layout</h3>
+                    <p>Desain PCB profesional untuk AFE dengan noise immunity optimal.</p>
+                </div>
+                <div class="card">
+                    <h3>📊 Evaluasi Performa</h3>
+                    <p>Pengujian akurasi dengan manometer aneroid dan tensimeter Omron sebagai referensi.</p>
+                </div>
+                <div class="card">
+                    <h3>📱 GUI Desktop</h3>
+                    <p>Aplikasi Python/Electron untuk data logging, visualisasi real-time, dan export data.</p>
+                </div>
+                <div class="card">
+                    <h3>📡 Bluetooth</h3>
+                    <p>Integrasi HC-05/HM-10 untuk komunikasi nirkabel dengan smartphone.</p>
+                </div>
+                <div class="card">
+                    <h3>🧠 Machine Learning</h3>
+                    <p>Eksperimen dengan neural network untuk deteksi SBP/DBP yang lebih akurat.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="site-footer">
+            <p><strong>CuffnCode</strong> &mdash; Firmware Documentation</p>
+            <p>&copy; 2026 Tim CuffnCode | IFAC Activity Fund</p>
+        </footer>
+    </main>
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>
