@@ -12,6 +12,7 @@ Firmware/build/
 *.swp
 *.swo
 *~
+~$*
 
 # OS
 Thumbs.db
